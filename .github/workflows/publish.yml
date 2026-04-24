@@ -16,5 +16,3 @@ jobs:
       release-tag: ${{ github.ref_name }}
       pypi-name: idaesplus-release-automation
       test-command: python -c "import idaesplus_release_automation"
-    secrets:
-      pypi-token: ${{ secrets.PYPI_TOKEN }}
