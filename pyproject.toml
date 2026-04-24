@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "idaesplus-release-automation"
+dynamic = ["version"]
+description = "Release automation tools for IDAES+"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "BSD-3-Clause" }
+dependencies = [
+    "requests>=2.28",
+    "click>=8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "build>=1.0",
+]
+docs = [
+    "sphinx>=7.0",
+]
+
+[tool.setuptools_scm]
