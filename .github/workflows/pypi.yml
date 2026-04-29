@@ -1,0 +1,295 @@
+name: Create PyPI package
+run-name: Create PyPI package (${{ format('`{}=={}`', inputs.pypi-name, inputs.release-tag) }})
+
+on:
+
+  workflow_call:
+    inputs:
+
+      repository:
+        description: Full name (user/repo) of the repository to package
+        type: string
+        required: true
+
+      release-tag:
+        description: Version tag of the release
+        type: string
+        required: true
+
+      pypi-name:
+        description: Name of the Python package distribution as it appears on PyPI
+        type: string
+        required: true
+
+      extras-require:
+        description: extras_require target(s) to install, if any, including delimiting square brackets.
+        type: string
+        required: false
+        default: ''
+
+      python-version:
+        description: Python version to use
+        required: false
+        default: '3.11'
+        type: string
+
+      runner-image:
+        description: Runner image to use
+        type: string
+        required: false
+        default: ubuntu-latest
+
+      build-command:
+        description: Command to run to generate package files
+        required: false
+        type: string
+        default: python -m build
+
+      artifact-name:
+        description: Name under which the build outputs will be saved as a GHA artifact
+        type: string
+        required: false
+        default: dist
+
+      test-command:
+        description: Command(s) to run to determine successful installation
+        type: string
+        required: true
+
+      test-after-build:
+        description: Whether to run test command after build phase
+        type: boolean
+        required: false
+        default: true
+
+      pip-install-retry-wait-time:
+        description: Amount of time (in s) to wait before retrying to run pip install
+        type: string
+        required: false
+        default: "15"
+
+      upload:
+        description: Whether to upload the build package
+        type: boolean
+        required: false
+        default: true
+
+      conda-channels:
+        description: >
+          Space-separated list of conda channels to use when installing conda packages.
+          Only used when conda-packages is non-empty. Defaults to "conda-forge".
+        type: string
+        required: false
+        default: 'conda-forge'
+
+      conda-packages:
+        description: >
+          Space-separated list of conda packages to install before pip install.
+          Leave empty (default) to skip conda setup entirely and use setup-python instead.
+        type: string
+        required: false
+        default: ''
+
+    secrets:
+
+      test-pypi-token:
+        description: Auth token for PyPI (test instance)
+        required: false
+
+      pypi-token:
+        description: Auth token for PyPI
+        required: false
+
+defaults:
+  run:
+    shell: bash -l {0}
+
+env:
+  PYTEST_ADDOPTS: --color=yes
+  PIP_PROGRESS_BAR: 'off'
+
+jobs:
+  build:
+    runs-on: ${{ inputs.runner-image }}
+
+    steps:
+
+     - name: Checkout code to be packaged
+       uses: actions/checkout@v4
+       with:
+         repository: ${{ inputs.repository }}
+         ref: ${{ inputs.release-tag }}
+
+     - uses: actions/setup-python@v5
+       with:
+         python-version: ${{ inputs.python-version }}
+
+     - name: Generate dist files
+       run: |
+         pip install build wheel
+
+         ${{ inputs.build-command }}
+
+     - name: Check that the dist directory's size is below PyPI's maximum
+       run: |
+         ls -lh dist/*
+         _maxsize=100000  # 100 MB
+         _dirsize=$(du -s dist/ | cut -f 1) ; echo $_dirsize
+         echo "::notice title=${{ inputs.artifact-name }}::Total size of dist/ directory is $_dirsize kB"
+         [ "$_dirsize" -lt "$_maxsize" ]
+
+     - name: Upload dist files as artifact
+       uses: actions/upload-artifact@v4
+       with:
+         name: ${{ inputs.artifact-name }}
+         path: dist/
+         retention-days: 1
+
+  test-whl:
+    needs: [build]
+    name: Test ${{ inputs.pypi-name }} from .whl file
+    runs-on: ${{ inputs.runner-image }}
+
+    steps:
+     - uses: actions/download-artifact@v4
+       with:
+         name: ${{ inputs.artifact-name }}
+         path: dist
+
+     - name: Set up Python (without conda)
+       if: ${{ inputs.conda-packages == '' }}
+       uses: actions/setup-python@v5
+       with:
+         python-version: ${{ inputs.python-version }}
+
+     - name: Set up conda environment
+       if: ${{ inputs.conda-packages != '' }}
+       uses: conda-incubator/setup-miniconda@v3
+       with:
+         python-version: ${{ inputs.python-version }}
+         miniforge-version: latest
+         channels: ${{ inputs.conda-channels }}
+         channel-priority: flexible
+         activate-environment: pkg-test
+
+     - name: Install conda packages
+       if: ${{ inputs.conda-packages != '' }}
+       run: conda install --yes ${{ inputs.conda-packages }}
+
+     - name: Install from .whl file
+       run: |
+         ls -lh dist/
+         whl_file="$(ls dist/*.whl)"
+         echo $whl_file
+         pip install "${whl_file}${{ inputs.extras-require }}"
+
+     - name: Check that installed package has the expected tag
+       run: |
+         pip show ${{ inputs.pypi-name }} | grep "${{ inputs.release-tag }}"
+
+     - name: Run tests
+       if: ${{ inputs.test-after-build }}
+       working-directory: /tmp
+       run: |
+         ${{ inputs.test-command }}
+
+  upload-test-pypi:
+    if: inputs.upload
+    needs: [test-whl]
+    runs-on: ${{ inputs.runner-image }}
+    env:
+      TWINE_USERNAME: __token__
+      TWINE_NON_INTERACTIVE: "true"
+    steps:
+
+     - uses: actions/download-artifact@v4
+       with:
+         name: ${{ inputs.artifact-name }}
+         path: dist
+
+     - uses: actions/setup-python@v5
+       with:
+         python-version: ${{ inputs.python-version }}
+
+     - name: Install twine
+       run: |
+         pip install twine
+
+     - name: Upload dist files to the test PyPI
+       env:
+         TWINE_PASSWORD: ${{ secrets.test-pypi-token }}
+         TWINE_REPOSITORY_URL: https://test.pypi.org/legacy/
+       run: |
+         twine upload --verbose dist/*
+
+  install-test-pypi:
+    runs-on: ${{ inputs.runner-image }}
+    needs: [upload-test-pypi]
+
+    steps:
+
+     - name: Set up Python (without conda)
+       if: ${{ inputs.conda-packages == '' }}
+       uses: actions/setup-python@v5
+       with:
+         python-version: ${{ inputs.python-version }}
+
+     - name: Set up conda environment
+       if: ${{ inputs.conda-packages != '' }}
+       uses: conda-incubator/setup-miniconda@v3
+       with:
+         python-version: ${{ inputs.python-version }}
+         miniforge-version: latest
+         channels: ${{ inputs.conda-channels }}
+         channel-priority: flexible
+         activate-environment: conda-test
+
+     - name: Install conda packages
+       if: ${{ inputs.conda-packages != '' }}
+       run: conda install --yes ${{ inputs.conda-packages }}
+
+     - name: Install ${{ inputs.pypi-name }}==${{ inputs.release-tag }} from test PyPI
+       env:
+         _wait_time_s: ${{ inputs.pip-install-retry-wait-time }}
+         _pip_install_flags: --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/
+         _pip_install_target: ${{ inputs.pypi-name }}${{ inputs.extras-require }}==${{ inputs.release-tag }}
+       run: |
+        until pip install $_pip_install_flags "$_pip_install_target"
+        do
+            echo "pip install failed; waiting $_wait_time_s seconds"
+            sleep "$_wait_time_s"
+        done
+
+     - name: Run tests
+       if: ${{ inputs.test-after-build }}
+       run: |
+         ${{ inputs.test-command }}
+
+  upload-pypi:
+    if: inputs.upload
+    needs: [install-test-pypi]
+    runs-on: ${{ inputs.runner-image }}
+    env:
+      TWINE_USERNAME: __token__
+      TWINE_NON_INTERACTIVE: "true"
+    steps:
+
+     - uses: actions/download-artifact@v4
+       with:
+         name: ${{ inputs.artifact-name }}
+         path: dist
+
+     - uses: actions/setup-python@v5
+       with:
+         python-version: ${{ inputs.python-version }}
+
+     - name: Install twine
+       run: |
+         pip install twine
+
+     - name: Upload dist files to the real PyPI
+       env:
+         TWINE_PASSWORD: ${{ secrets.pypi-token }}
+         TWINE_REPOSITORY_URL: https://upload.pypi.org/legacy/
+       run: |
+         twine upload --verbose dist/*
