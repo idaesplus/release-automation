@@ -90,16 +90,6 @@ on:
         required: false
         default: ''
 
-    secrets:
-
-      test-pypi-token:
-        description: Auth token for PyPI (test instance)
-        required: false
-
-      pypi-token:
-        description: Auth token for PyPI
-        required: false
-
 defaults:
   run:
     shell: bash -l {0}
@@ -210,30 +200,21 @@ jobs:
     if: inputs.upload
     needs: [test-whl]
     runs-on: ${{ inputs.runner-image }}
-    env:
-      TWINE_USERNAME: __token__
-      TWINE_NON_INTERACTIVE: "true"
+    permissions: 
+      id-token: write
+    environment: release
+    
     steps:
 
      - uses: actions/download-artifact@v4
        with:
          name: ${{ inputs.artifact-name }}
          path: dist
-
-     - uses: actions/setup-python@v5
-       with:
-         python-version: ${{ inputs.python-version }}
-
-     - name: Install twine
-       run: |
-         pip install twine
-
+         
      - name: Upload dist files to the test PyPI
-       env:
-         TWINE_PASSWORD: ${{ secrets.test-pypi-token }}
-         TWINE_REPOSITORY_URL: https://test.pypi.org/legacy/
-       run: |
-         twine upload --verbose dist/*
+       uses: pypa/gh-action-pypi-publish@release/v1
+       with:
+        repository-url: https://test.pypi.org/legacy/
 
   install-test-pypi:
     runs-on: ${{ inputs.runner-image }}
@@ -282,9 +263,9 @@ jobs:
     if: inputs.upload
     needs: [install-test-pypi]
     runs-on: ${{ inputs.runner-image }}
-    env:
-      TWINE_USERNAME: __token__
-      TWINE_NON_INTERACTIVE: "true"
+    permissions: 
+      id-token: write
+    environment: release
     steps:
 
      - uses: actions/download-artifact@v4
@@ -292,17 +273,5 @@ jobs:
          name: ${{ inputs.artifact-name }}
          path: dist
 
-     - uses: actions/setup-python@v5
-       with:
-         python-version: ${{ inputs.python-version }}
-
-     - name: Install twine
-       run: |
-         pip install twine
-
-     - name: Upload dist files to the real PyPI
-       env:
-         TWINE_PASSWORD: ${{ secrets.pypi-token }}
-         TWINE_REPOSITORY_URL: https://upload.pypi.org/legacy/
-       run: |
-         twine upload --verbose dist/*
+     - name: Upload dist files to the test PyPI
+       uses: pypa/gh-action-pypi-publish@release/v1
