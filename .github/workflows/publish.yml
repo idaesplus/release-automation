@@ -10,7 +10,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: lbianchi-lbl/pse-releng/.github/workflows/pypi.yml@main
+    uses: ./.github/workflows/pypi.yml
     with:
       repository: ${{ github.repository }}
       release-tag: ${{ github.ref_name }}
