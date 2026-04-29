@@ -185,7 +185,20 @@ jobs:
 
      - name: Check that installed package has the expected tag
        run: |
-         pip show ${{ inputs.pypi-name }} | grep "${{ inputs.release-tag }}"
+         pip install packaging
+         python -c '
+         import sys
+         from importlib.metadata import version
+         from packaging.version import Version
+      
+         name = sys.argv[1]
+         tag = sys.argv[2]
+         normalized_tag = str(Version(tag))
+         pkg_version = version(name)
+
+         print(f"{name=}\n{tag=}\n{normalized_tag=}\n{pkg_version=}")
+         assert version(name) == normalized_tag    
+         ' "${{ inputs.pypi-name }}" "${{ inputs.release-tag }}"
 
      - name: Run tests
        if: ${{ inputs.test-after-build }}
