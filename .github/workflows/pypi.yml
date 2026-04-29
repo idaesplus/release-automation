@@ -90,6 +90,18 @@ on:
         required: false
         default: ''
 
+      test-pypi-environment:
+        description: Name of the GitHub Actions environment to use for TestPyPI publishing
+        type: string
+        required: false
+        default: release
+
+      pypi-environment:
+        description: Name of the GitHub Actions environment to use for PyPI publishing
+        type: string
+        required: false
+        default: release
+
 defaults:
   run:
     shell: bash -l {0}
