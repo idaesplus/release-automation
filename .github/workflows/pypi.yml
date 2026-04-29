@@ -214,7 +214,7 @@ jobs:
     runs-on: ${{ inputs.runner-image }}
     permissions: 
       id-token: write
-    environment: release
+    environment: ${{ inputs.test-pypi-environment }}
     
     steps:
 
@@ -277,7 +277,7 @@ jobs:
     runs-on: ${{ inputs.runner-image }}
     permissions: 
       id-token: write
-    environment: release
+    environment:  ${{ inputs.pypi-environment }}
     steps:
 
      - uses: actions/download-artifact@v4
