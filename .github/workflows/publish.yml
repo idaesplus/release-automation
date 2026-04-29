@@ -22,4 +22,6 @@ jobs:
       repository: ${{ github.repository }}
       release-tag: ${{ github.ref_name }}
       pypi-name: idaesplus-release-automation
+      test-pypi-environment: release
+      pypi-environment: release
       test-command: python -c "import idaesplus_release_automation"
