@@ -21,8 +21,10 @@ jobs:
      - name: Checkout code to be packaged
        uses: actions/checkout@v6
 
-    # not defining a python version, but if the workflow fails, can try to add it back.
-     - uses: actions/setup-python@v5
+     # setting python-version to avoid warnings
+     - uses: actions/setup-python@v6
+       with:
+         python-version: 3.14
 
      - name: Generate dist files
        run: |
@@ -39,7 +41,7 @@ jobs:
          [ "$_dirsize" -lt "$_maxsize" ]
 
      - name: Upload dist files as artifact
-       uses: actions/upload-artifact@v4
+       uses: actions/upload-artifact@v7
        with:
          name: dist
          path: dist/
@@ -53,13 +55,13 @@ jobs:
 
     steps:
     
-     - uses: actions/download-artifact@v4
+     - uses: actions/download-artifact@v8
        with:
          name: dist
          path: dist
 
      - name: Set up Python
-       uses: actions/setup-python@v5
+       uses: actions/setup-python@v6
        # pick a python version that you used for testing
        with:
          python-version: 3.14
@@ -101,7 +103,7 @@ jobs:
     environment: test-release
     steps:
 
-     - uses: actions/download-artifact@v4
+     - uses: actions/download-artifact@v8
        with:
          name: dist
          path: dist
@@ -117,7 +119,7 @@ jobs:
     steps:
 
      - name: Set up Python
-       uses: actions/setup-python@v5
+       uses: actions/setup-python@v6
        with:
          python-version: 3.14
 
@@ -145,7 +147,7 @@ jobs:
     environment: release
     steps:
 
-     - uses: actions/download-artifact@v4
+     - uses: actions/download-artifact@v8
        with:
          name: dist
          path: dist
