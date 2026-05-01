@@ -69,7 +69,7 @@ jobs:
          ls -lh dist/
          whl_file="$(ls dist/*.whl)"
          echo $whl_file
-         pip install "${whl_file}$"
+         pip install "${whl_file}"
 
      - name: Check that installed package has the expected tag
        run: |
