@@ -5,25 +5,6 @@ on:
     tags:
       - "*"
 
-jobs:
-  prepublish:
-    runs-on: ubuntu-latest
-    environment: release
-    steps:
-      - run: echo '${{ toJson(github) }}'
-    
-  publish:
-    needs: [prepublish]
-    permissions:
-      contents: read
-      id-token: write
-    uses: ./.github/workflows/pypi.yml
-    with:
-      repository: ${{ github.repository }}
-      release-tag: ${{ github.ref_name }}
-      pypi-name: idaesplus-release-automation
-      test-command: python -c "import idaesplus_release_automation"
-
 defaults:
   run:
     shell: bash -l {0}
@@ -37,7 +18,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
      - name: Checkout code to be packaged
        uses: actions/checkout@v6
 
@@ -72,6 +52,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    
      - uses: actions/download-artifact@v4
        with:
          name: dist
@@ -114,7 +95,7 @@ jobs:
 
   upload-test-pypi:
     needs: [test-whl]
-    runs-on: unbuntu-latest
+    runs-on: ubuntu-latest
     permissions: 
       id-token: write
     environment: test-release
@@ -131,7 +112,7 @@ jobs:
          repository-url: https://test.pypi.org/legacy/
 
   install-test-pypi:
-    runs-on: unbuntu-latest
+    runs-on: ubuntu-latest
     needs: [upload-test-pypi]
 
     steps:
@@ -158,7 +139,6 @@ jobs:
          python -c "import idaesplus_release_automation"
 
   upload-pypi:
-    if: inputs.upload
     needs: [install-test-pypi]
     runs-on: ubuntu-latest
     permissions:
