@@ -154,3 +154,52 @@ jobs:
 
      - name: Upload dist files to the PyPI
        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b
+
+  env-snapshot:
+      name: Create and collect env snapshot
+      needs: [upload-pypi]
+      runs-on: ubuntu-latest
+      env:
+        ENV_NAME: idaesplus-release-automation-${{ github.ref_name }}
+        OUTPUT_DIR: idaesplus-release-automation-${{ github.ref_name }}
+
+      steps:
+        - name: Set up Conda environment with Python
+          uses: conda-incubator/setup-miniconda@v3
+          with:
+            miniforge-version: latest
+            activate-environment: idaesplus-release-automation-${{ github.ref_name }}
+            python-version: '3.13'
+
+        - name: Install idaesplus-release-automation==${{ github.ref_name }}
+          run: |
+            pip install "idaesplus-release-automation==${{ github.ref_name }}"
+
+        - name: Create output directory
+          run: mkdir "$OUTPUT_DIR"
+
+        - name: Save environment info (requirements.txt)
+          working-directory: ${{ env.OUTPUT_DIR }}
+          run: |
+            pip freeze > requirements.txt
+            cat requirements.txt
+
+        - name: Save environment info (environment.yml)
+          working-directory: ${{ env.OUTPUT_DIR }}
+          run: |
+            conda env export \
+              -n "$ENV_NAME" \
+              --no-builds \
+              -f environment.yml
+            cat environment.yml
+
+        - name: List output directory contents
+          run: ls -la "$OUTPUT_DIR/"
+
+        - name: Save as workflow artifact
+          uses: actions/upload-artifact@v4
+          with:
+            name: ${{ env.ENV_NAME }}
+            path: ${{ env.OUTPUT_DIR }}/
+            if-no-files-found: error
+            retention-days: 90
