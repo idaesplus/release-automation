@@ -159,13 +159,15 @@ jobs:
       name: Create and collect env snapshot
       needs: [upload-pypi]
       runs-on: ubuntu-latest
+      permissions:
+        contents: write
       env:
         ENV_NAME: idaesplus-release-automation-${{ github.ref_name }}
         OUTPUT_DIR: idaesplus-release-automation-${{ github.ref_name }}
 
       steps:
         - name: Set up Conda environment with Python
-          uses: conda-incubator/setup-miniconda@v3
+          uses: conda-incubator/setup-miniconda@v4
           with:
             miniforge-version: latest
             activate-environment: idaesplus-release-automation-${{ github.ref_name }}
@@ -203,3 +205,10 @@ jobs:
             path: ${{ env.OUTPUT_DIR }}/
             if-no-files-found: error
             retention-days: 90
+        
+        - name: Upload to GitHub Release
+          uses: softprops/action-gh-release@v3
+          with:
+            files: |
+              ${{ env.OUTPUT_DIR }}/requirements.txt
+              ${{ env.OUTPUT_DIR }}/environment.yml
